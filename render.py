@@ -545,6 +545,23 @@ SCENES = {
 }
 
 
+def draw_clipped(img, box, fn):
+    """Draw fn(draw, box) onto img, clipped to the rectangle box=(x, y, w, h).
+
+    Scene functions draw with absolute coordinates and can overshoot the box
+    (a sun or flame drawn above the strip, a shape past the right edge).
+    Without clipping those shapes paint over the card border and the text
+    below. Drawing onto a temp layer and pasting back only the box region
+    keeps every illustration inside its own box.
+    """
+    x, y, w, h = [int(v) for v in box]
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    fn(ld, box)
+    cropped = layer.crop((x, y, x + w, y + h))
+    img.paste(cropped, (x, y), cropped)
+
+
 # --------------------------------------------------------------------------------------
 # Page layout
 # --------------------------------------------------------------------------------------
@@ -573,7 +590,7 @@ def draw_numbers(d):
     d.line([M, 144, W - M, 144], fill=RULE, width=1)
 
 
-def draw_big(d):
+def draw_big(img, d):
     y0 = 150
     h = 212
     gap = 6
@@ -586,7 +603,7 @@ def draw_big(d):
         d.text((x + 17, y0 + 17), str(n), font=F(14, bold=True), fill=(255, 255, 255), anchor="mm")
         # illustration
         ib = (x + 3, y0 + 3, cw - 6, 116)
-        SCENES[key](d, ib)
+        draw_clipped(img, ib, SCENES[key])
         d.rectangle([ib[0], ib[1], ib[0] + ib[2], ib[1] + ib[3]], outline=BORDER)
         # tags
         ty = y0 + 124
@@ -603,7 +620,7 @@ def draw_big(d):
     return y0 + h + 6
 
 
-def draw_medium(d, y0):
+def draw_medium(img, d, y0):
     rows, cols = 2, 5
     gap = 4
     cw = (W - 2 * M - (cols - 1) * gap) / cols
@@ -618,7 +635,7 @@ def draw_medium(d, y0):
             d.rectangle([x, y, x + cw, y + ch], fill=(255, 255, 255), outline=BORDER)
             d.rectangle([x, y + 1, x + 3, y + ch - 1], fill=REGION[region])
             ib = (x + 5, y + 3, cw - 10, 34)
-            SCENES[key](d, ib)
+            draw_clipped(img, ib, SCENES[key])
             d.rectangle([ib[0], ib[1], ib[0] + ib[2], ib[1] + ib[3]], outline=BORDER)
             d.ellipse([x + cw - 19, y + 2, x + cw - 5, y + 16], fill=RED)
             d.text((x + cw - 12, y + 9), str(n), font=F(9, bold=True), fill=(255, 255, 255), anchor="mm")
@@ -699,12 +716,12 @@ def draw_datecheck(d, x, y, w, h):
 
 
 def render(path):
-    img = Image.new("RGB", (W, H), PAPER)
+    img = Image.new("RGBA", (W, H), PAPER + (255,))
     d = ImageDraw.Draw(img)
     draw_masthead(d)
     draw_numbers(d)
-    y = draw_big(d)
-    y = draw_medium(d, y)
+    y = draw_big(img, d)
+    y = draw_medium(img, d, y)
     # bottom band: map + numbered list on top, full-width DATE CHECK below
     by = y
     bottom_h = H - by - M - 14
@@ -719,7 +736,7 @@ def render(path):
            "Every story is an event of Saturday 21 November 2026.  Sources: AFP, Reuters, Al Jazeera, Euronews, "
            "The Guardian, BBC, AP, ESA, USGS, The Japan Times, UNB, TBS, The Daily Star, New York Post.",
            font=F(7), fill=GREY, anchor="ma")
-    img.save(path)
+    img.convert("RGB").save(path)
 
 
 if __name__ == "__main__":

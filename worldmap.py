@@ -58,6 +58,10 @@ def project(lon, lat, box):
     x0, y0, w, h = box
     fx = (lon - LON_MIN) / (LON_MAX - LON_MIN)
     fy = (LAT_TOP - lat) / (LAT_TOP - LAT_BOTTOM)
+    # Clamp to the box: Greenland reaches lat 82-84, above LAT_TOP (75), so
+    # without this its tip projects above the box and paints over the title.
+    fx = min(1.0, max(0.0, fx))
+    fy = min(1.0, max(0.0, fy))
     return (x0 + fx * w, y0 + fy * h)
 
 
